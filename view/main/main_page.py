@@ -357,6 +357,8 @@ class MainPage(ttk.Window):
         self.clear_fields()
 
         self.message_box_view(response)
+        
+        self.show_items(all_items=True)
     
 
     def update_item(self):
