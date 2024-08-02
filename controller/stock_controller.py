@@ -11,13 +11,13 @@ class StockController:
             rows = self.wks.get_all_values(include_tailing_empty_rows=False)
             for row in rows:
                 if row[1] == item_stock.identification:
-                    return "Erro: Identificador já existe no estoque."
+                    return (f"Erro: Ativo #{item_stock.identification} já existe no estoque.")
 
             new_row_index = len(rows)
             self.wks.insert_rows(new_row_index, values=[list(item_stock.to_dict().values())])
-            return "Item adicionado no Estoque com Sucesso!"
+            return (f"Item #{item_stock.identification} adicionado com sucesso!")
         except Exception as error:
-            raise Exception(f"Erro ao adicionar item no estoque:\n{error}")
+            raise Exception(f"Erro ao adicionar item:\n{error}")
         
 
     def update_item(self, identification: str, item_stock: StockModel) -> str:
@@ -29,10 +29,10 @@ class StockController:
                     row_index = i + 1
                     break
             if row_index is None:
-                return "Item não encontrado para atualização."
+                return (f"Item #{item_stock.identification} não encontrado para atualização.")
 
             self.wks.update_row(row_index, list(item_stock.to_dict().values()))
-            return "Item do estoque alterado com Sucesso!"
+            return (f"Item #{item_stock.identification} alterado com sucesso!")
         except Exception as error:
             raise Exception(f"Erro ao alterar item no estoque:\n{error}")
         
@@ -46,10 +46,10 @@ class StockController:
                     row_index = i + 1
                     break
             if row_index is None:
-                return "Item não encontrado para exclusão."
+                return "Item não encontrado."
 
             self.wks.delete_rows(row_index)
-            return "Item do estoque excluído com sucesso!"
+            return "Item excluído com sucesso!"
         except Exception as error:
             raise Exception(f"Erro ao excluir item no estoque:\n{error}")
         

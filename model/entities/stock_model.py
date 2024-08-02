@@ -10,8 +10,8 @@ class StockModel:
         self.type = type
         self.quantity = quantity
         self.location = location
-        self.last_edition = last_edition
         self.note = note
+        self.last_edition = last_edition        
 
     def to_dict(self) -> dict:
         return {
@@ -21,8 +21,8 @@ class StockModel:
             "Tipo": self.type,
             "Quantidade": self.quantity,
             "Localização": self.location,
-            "ÚltimaEdição": self.last_edition.isoformat(),
-            "Observação": self.note
+            "Observação": self.note,
+            "Última Edição": self.last_edition.strftime("%d/%m/%Y %H:%M:%S")
         }
 
     @staticmethod
@@ -31,13 +31,18 @@ class StockModel:
         if isinstance(quantity, str):
             quantity = int(quantity) if quantity.isdigit() else 0
 
-        last_edition_str = dict_stock.get(
-            "ÚltimaEdição", datetime.now().isoformat())
-        try:
-            last_edition = datetime.fromisoformat(last_edition_str)
-        except ValueError:
-            last_edition = datetime.strptime(
-                last_edition_str, "%Y-%m-%d %H:%M:%S")
+        last_edition_str = dict_stock.get("Última Edição", "")
+        
+        if last_edition_str:
+            try:
+                last_edition = datetime.strptime(last_edition_str, "%d/%m/%Y %H:%M:%S")
+            except ValueError:
+                try:
+                    last_edition = datetime.strptime(last_edition_str, "%Y-%m-%dT%H:%M:%S.%f")
+                except ValueError:
+                    last_edition = datetime.now()
+        else:
+            last_edition = datetime.now()
 
         return StockModel(
             accountable=dict_stock.get("Responsável", ""),
@@ -46,10 +51,10 @@ class StockModel:
             type=dict_stock.get("Tipo", ""),
             quantity=quantity,
             location=dict_stock.get("Localização", ""),
-            last_edition=last_edition,
-            note=dict_stock.get("Observação", "")
+            note=dict_stock.get("Observação", ""),
+            last_edition=last_edition
         )
 
     def __repr__(self) -> str:
         return (f"StockModel(accountable={self.accountable}, identification={self.identification}, maker={self.maker}, "
-                f"type={self.type}, quantity={self.quantity}, location={self.location}, last_edition={self.last_edition}, note={self.note})")
+                f"type={self.type}, quantity={self.quantity}, location={self.location}, note={self.note}), last_edition={self.last_edition}")

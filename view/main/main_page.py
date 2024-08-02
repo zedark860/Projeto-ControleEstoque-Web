@@ -1,12 +1,25 @@
 import ttkbootstrap as ttk
+import requests
 from ttkbootstrap.constants import *
-from datetime import datetime
 from controller.stock_controller import StockController
 from config.sheets.spreadsheet_connection import SpreadsheetConnection
-from model.entities.stock_model import StockModel
 from tkinter import messagebox
 
+from view.main.add_view import add_item
+from view.main.delete_view import delete_item
+from view.main.update_view import update_item
+from view.main.view_itens import show_items
+
 class MainPage(ttk.Window):
+    @staticmethod
+    def check_internet_connection():
+        try:
+            # Tenta fazer uma solicitação HTTP para um site confiável
+            requests.get("http://www.google.com", timeout=5)
+            return True
+        except requests.ConnectionError:
+            return False
+
     def __init__(self):
         super().__init__(themename="darkly")
         self.title("Controle do Estoque - T.I")
@@ -23,12 +36,14 @@ class MainPage(ttk.Window):
         self.items_list = self.stock_controller.get_all_items()
 
         self.create_widgets()
-        
+
+        # Verifica a conexão periodicamente
+        self.check_internet_periodically()
 
     def center_window(self):
         """Centraliza a janela na vertical."""
         window_width = 600
-        window_height = 600
+        window_height = 650
 
         screen_width = self.winfo_screenwidth()
         screen_height = self.winfo_screenheight()
@@ -38,12 +53,37 @@ class MainPage(ttk.Window):
 
         self.geometry(f'{window_width}x{window_height}+{x}+{y}')
         
+    def check_internet_periodically(self):
+        if not self.check_internet_connection():
+            messagebox.showerror(
+                "Erro de Conexão", "Perdeu a conexão com a internet. Por favor, verifique sua conexão!")
+            self.destroy()  # Fechar a aplicação se a conexão cair
+        else:
+            # Agendar a próxima verificação em 10 segundos (10000 milissegundos)
+            self.after(10000, self.check_internet_periodically)
 
     def create_widgets(self):
         self.create_action_combobox()
         self.create_form()
         self.update_form_visibility()
         
+    def create_form(self):
+        """Cria todos os campos do formulário e os botões."""
+        self.create_form_fields()
+        self.create_buttons()
+        self.create_view_fields()
+        
+    def create_form_fields(self):
+        """Cria e organiza os campos do formulário e armazena referências."""
+        self.labels_entries = {
+            "Responsável": self.create_combobox_entry("Responsável:", self.get_responsavel_values() ,self.letter_validation),
+            "Identificação": self.create_label_entry("Identificação do Ativo:", self.number_validation),
+            "Fabricante": self.create_combobox_entry("Fabricante:", self.get_fabricante_values(), self.letter_validation),
+            "Tipo": self.create_combobox_entry("Tipo do Item:", self.get_tipo_values(), self.letter_validation),
+            "Quantidade": self.create_label_entry("Quantidade:", self.number_validation),
+            "Localização": self.create_combobox_entry("Localização do Item:", self.get_localizacao_values(), self.alnum_validation),
+            "Observação": self.create_label_entry("Observações do Item:", self.alnum_validation)
+        }
 
     def create_action_combobox(self):
         """Cria o combobox para selecionar a ação."""
@@ -56,47 +96,24 @@ class MainPage(ttk.Window):
         self.action_combobox.pack(pady=5)
         self.action_combobox.bind(
             "<<ComboboxSelected>>", self.update_form_visibility)
-        
-
-    def create_form(self):
-        """Cria todos os campos do formulário e os botões."""
-        self.create_form_fields()
-        self.create_buttons()
-        self.create_view_fields()
-        
-
-    def create_form_fields(self):
-        """Cria e organiza os campos do formulário e armazena referências."""
-        self.labels_entries = {
-            "Responsável": self.create_label_entry("Responsável:", self.letter_validation),
-            "Identificação": self.create_label_entry("Identificação do Ativo:", self.number_validation),
-            "Fabricante": self.create_combobox_entry("Fabricante:", self.get_fabricante_values(), self.letter_validation),
-            "Tipo": self.create_combobox_entry("Tipo do Item:", self.get_tipo_values(), self.letter_validation),
-            "Quantidade": self.create_label_entry("Quantidade:", self.number_validation),
-            "Localização": self.create_label_entry("Localização do Item:", self.alnum_validation),
-            "Observação": self.create_label_entry("Observações do Item:", self.alnum_validation)
-        }
-        
 
     def create_label_entry(self, text, validation_command):
         """Cria um rótulo e um campo de entrada e retorna as referências."""
         label = ttk.Label(self, text=text, bootstyle="info")
         entry = ttk.Entry(self, validate="key",
-                        validatecommand=(validation_command, '%S'))
+                          validatecommand=(validation_command, '%S'))
         return label, entry
-    
 
     def create_buttons(self):
         """Cria diferentes botões para cada opção selecionada no ComboBox"""
         self.add_button = ttk.Button(
-            self, text="Adicionar", bootstyle="success", command=self.add_item)
+            self, text="Adicionar", bootstyle="success", command=lambda: add_item(self))
         self.update_button = ttk.Button(
-            self, text="Modificar", bootstyle="success", command=self.update_item)
+            self, text="Modificar", bootstyle="success", command=lambda: update_item(self))
         self.delete_button = ttk.Button(
-            self, text="Deletar", bootstyle="danger", command=self.delete_item)
+            self, text="Deletar", bootstyle="success", command=lambda: delete_item(self))
         self.clear_button = ttk.Button(
             self, text="Limpar", bootstyle="warning", command=self.clear_fields)
-        
 
     def create_view_fields(self):
         """Cria os campos para visualizar os itens."""
@@ -116,8 +133,8 @@ class MainPage(ttk.Window):
 
         # Botão para visualizar itens
         self.view_button = ttk.Button(
-            self, text="Mostrar Itens", bootstyle="success", command=self.show_items)
-
+            self, text="Mostrar Itens", bootstyle="success", command=lambda: show_items(self))
+        
         # Organizar a visualização dos campos
         self.view_id_label.pack(pady=5)
         self.view_id_entry.pack(pady=5)
@@ -128,7 +145,6 @@ class MainPage(ttk.Window):
 
         # Atualiza opções do combobox de tipos
         self.update_type_combobox()
-        
 
     def update_form_visibility(self, event=None):
         """Atualiza a visibilidade dos campos com base na ação selecionada."""
@@ -143,7 +159,6 @@ class MainPage(ttk.Window):
             self.show_update_item_form()
         else:
             self.hide_all_fields()
-            
 
     def show_delete_item_form(self):
         """Mostra somente os campos necessários para deletar um item e oculta os outros campos e botões."""
@@ -151,10 +166,9 @@ class MainPage(ttk.Window):
         self.labels_entries["Identificação"][0].pack(pady=5)
         self.labels_entries["Identificação"][1].pack(pady=5)
         self.delete_button.pack(pady=5)
-        
         self.view_text.pack(pady=5)
-        self.show_items(all_items=True)
         
+        show_items(self, all_items=True)
 
     def show_view_item_form(self):
         """Mostra campos para visualizar itens e oculta outros campos e botões."""
@@ -166,9 +180,8 @@ class MainPage(ttk.Window):
         self.view_text.pack(pady=5)
         self.view_button.pack(pady=5)
         self.clear_button.pack(pady=5)
-        
-        self.show_items(all_items=True)
-        
+
+        show_items(self, all_items=True)
 
     def show_add_item_form(self):
         """Mostra todos os campos do formulário e oculta o botão Deletar."""
@@ -179,6 +192,49 @@ class MainPage(ttk.Window):
         self.add_button.pack(pady=5)
         self.clear_button.pack(pady=5)
         
+    def autofill_callback(self, delay):
+        """Cria uma função de callback que será chamada após um atraso."""
+        def callback(event):
+            # Remove o evento antigo, se houver
+            if hasattr(self, '_autofill_timer'):
+                self.after_cancel(self._autofill_timer)
+
+            # Agenda o preenchimento automático
+            self._autofill_timer = self.after(delay, self.autofill_fields)
+
+        return callback
+    
+    def autofill_fields(self):
+        """Preenche os campos do formulário com os dados do item correspondente ao identificador fornecido."""
+        identificador = self.labels_entries["Identificação"][1].get().strip()
+
+        # Encontra o item com o identificador fornecido
+        item = next((item for item in self.items_list if str(
+            item.identification) == identificador), None)
+
+        if item:
+            self.message_box_view("Item encontrando com sucesso! Aguarde...", "Item encontrado")
+            
+            self.labels_entries["Responsável"][1].delete(0, "end")
+            self.labels_entries["Responsável"][1].insert(0, item.accountable)
+
+            self.labels_entries["Fabricante"][1].set(item.maker)
+
+            self.labels_entries["Tipo"][1].set(item.type)
+
+            self.labels_entries["Quantidade"][1].delete(0, "end")
+            self.labels_entries["Quantidade"][1].insert(0, item.quantity)
+
+            self.labels_entries["Localização"][1].delete(0, "end")
+            self.labels_entries["Localização"][1].insert(0, item.location)
+
+            self.labels_entries["Observação"][1].delete(0, "end")
+            self.labels_entries["Observação"][1].insert(0, item.note)
+        else:
+            self.message_box_view("Nenhum item encontrado com esse identificador!", "Item não encontrado")
+            
+            # Se não encontrar o item, limpa os campos
+            self.clear_fields()
 
     def show_update_item_form(self):
         """Mostra todos os campos do formulário e oculta o botão Deletar."""
@@ -188,9 +244,9 @@ class MainPage(ttk.Window):
             entry.pack(pady=5)
         self.update_button.pack(pady=5)
         self.clear_button.pack(pady=5)
-        
-        self.labels_entries["Identificação"][1].bind("<FocusOut>", self.autofill_fields)
-        
+
+        self.labels_entries["Identificação"][1].bind(
+            "<KeyRelease>", self.autofill_callback(1000))
 
     def hide_all_fields(self):
         """Oculta todos os campos do formulário e botões."""
@@ -208,8 +264,7 @@ class MainPage(ttk.Window):
         self.view_text.pack_forget()
         self.view_button.pack_forget()
         
-        self.labels_entries["Identificação"][1].unbind("<FocusOut>")
-        
+        self.labels_entries["Identificação"][1].unbind("<KeyRelease>")
 
     def create_combobox_entry(self, text, values, validation_command):
         """Cria um rótulo e um combobox editável e retorna as referências."""
@@ -219,7 +274,6 @@ class MainPage(ttk.Window):
         combobox.bind(
             '<FocusOut>', lambda e: self.update_combobox_values(combobox))
         return label, combobox
-    
 
     def update_combobox_values(self, combobox):
         """Atualiza o combobox com novos valores digitados."""
@@ -228,61 +282,41 @@ class MainPage(ttk.Window):
             values = list(combobox['values']) + [new_value]
             combobox['values'] = values
             
-
-    def update_type_combobox(self):
-        """Atualiza o combobox de tipos com os tipos únicos presentes nos itens."""
-        types = self.get_tipo_values()
-        self.view_type_combobox['values'] = types
-        
+    def get_responsavel_values(self):
+        """Obtém todos os valores únicos de nomes para o combobox."""
+        return sorted(set(item.accountable for item in self.items_list))
 
     def get_fabricante_values(self):
         """Obtém todos os valores únicos de fabricantes para o combobox."""
         return sorted(set(item.maker for item in self.items_list))
-    
 
     def get_tipo_values(self):
         """Obtém todos os valores únicos de tipos para o combobox."""
         return sorted(set(item.type for item in self.items_list))
     
+    def get_localizacao_values(self):
+        """Obtém todos os valores únicos de localizações para o combobox."""
+        return sorted(set(item.location for item in self.items_list))
+    
+    def update_responsavel_combobox(self):
+        """Atualiza o combobox de responsavel com os nomes responsáveis presentes nos itens."""
+        responsavel = self.get_nome_values()
+        self.labels_entries["Nome"][1]['values'] = responsavel
 
     def update_fabricante_combobox(self):
         """Atualiza o combobox de fabricantes com os fabricantes únicos presentes nos itens."""
         fabricantes = self.get_fabricante_values()
         self.labels_entries["Fabricante"][1]['values'] = fabricantes
         
-
-    def show_items(self, all_items=False):
-        """Exibe itens baseados no identificador e tipo selecionado."""
-        identificador = self.view_id_entry.get().strip()
-        tipo_selecionado = self.view_type_combobox.get()
+    def update_type_combobox(self):
+        """Atualiza o combobox de tipos com os tipos únicos presentes nos itens."""
+        types = self.get_tipo_values()
+        self.view_type_combobox['values'] = types
         
-        if all_items:
-            filtered_items = self.items_list
-        else:
-            identificador = self.view_id_entry.get().strip()
-            tipo_selecionado = self.view_type_combobox.get()
-
-            self.view_text.config(state=ttk.NORMAL)
-
-            filtered_items = [
-                item for item in self.items_list
-                if (not identificador or str(item.identification) == str(identificador)) and
-                   (not tipo_selecionado or str(item.type) == str(tipo_selecionado))
-            ]
-
-        self.view_text.delete(1.0, "end")
-        for item in filtered_items:
-            self.view_text.insert("end", f"Identificação: {item.identification}\n"
-                                f"Responsável: {item.accountable}\n"
-                                f"Fabricante: {item.maker}\n"
-                                f"Tipo: {item.type}\n"
-                                f"Quantidade: {item.quantity}\n"
-                                f"Última Edição: {item.last_edition}\n"
-                                f"Localização: {item.location}\n"
-                                f"Observações: {item.note}\n\n")
-
-        self.view_text.config(state=ttk.DISABLED)
-    
+    def update_localizacao_combobox(self):
+        """Atualiza o combobox de localização com os localizacoes únicas presentes nos itens."""
+        localizacao = self.get_localizacao_values()
+        self.labels_entries["Localização"][1]['values'] = localizacao
 
     def clear_fields(self):
         """Limpa todos os campos e widgets."""
@@ -293,93 +327,12 @@ class MainPage(ttk.Window):
         self.view_type_combobox.set('')
         self.view_text.config(state=ttk.NORMAL)
         self.view_text.delete(1.0, "end")
-        
-        
-    def autofill_fields(self, event):
-        """Preenche os campos do formulário com os dados do item correspondente ao identificador fornecido."""
-        identificador = self.labels_entries["Identificação"][1].get().strip()
-        
-        # Encontra o item com o identificador fornecido
-        item = next((item for item in self.items_list if str(item.identification) == identificador), None)
-        
-        if item:
-            self.labels_entries["Responsável"][1].delete(0, "end")
-            self.labels_entries["Responsável"][1].insert(0, item.accountable)
-            
-            self.labels_entries["Fabricante"][1].set(item.maker)
-            
-            self.labels_entries["Tipo"][1].set(item.type)
-            
-            self.labels_entries["Quantidade"][1].delete(0, "end")
-            self.labels_entries["Quantidade"][1].insert(0, item.quantity)
-            
-            self.labels_entries["Localização"][1].delete(0, "end")
-            self.labels_entries["Localização"][1].insert(0, item.location)
-            
-            self.labels_entries["Observação"][1].delete(0, "end")
-            self.labels_entries["Observação"][1].insert(0, item.note)
-        else:
-            # Se não encontrar o item, limpa os campos
-            self.clear_fields()
-    
 
     def message_box_view(self, message, title="Aviso"):
-        messagebox.showinfo(title, message)
-    
-
-    def add_item(self):
-        """Adiciona item ao estoque e atualiza a lista de itens"""
-        values = {key: entry.get().strip() if not isinstance(entry, ttk.Combobox)
-                else entry.get() for key, (_, entry) in self.labels_entries.items()}
-        values["ÚltimaEdição"] = datetime.now().isoformat()
-
-        item = StockModel.from_dict(values)
-
-        response = self.stock_controller.add_item(item)
-
-        self.items_list = self.stock_controller.get_all_items()
-        self.update_type_combobox()
-        self.update_fabricante_combobox()
-
-        self.clear_fields()
-
-        self.message_box_view(response)
-    
-
-    def delete_item(self):
-        """Deleta item ao estoque e atualiza a lista de itens"""
-        identificacao = self.labels_entries["Identificação"][1].get().strip()
-        response = self.stock_controller.delete_item(identificacao)
-
-        self.items_list = self.stock_controller.get_all_items()
-        self.update_type_combobox()
-
-        self.clear_fields()
-
-        self.message_box_view(response)
-        
-        self.show_items(all_items=True)
-    
-
-    def update_item(self):
-        """Atualiza item ao estoque e atualiza a lista de itens"""
-        values = {key: entry.get().strip() if not isinstance(entry, ttk.Combobox)
-                else entry.get() for key, (_, entry) in self.labels_entries.items()}
-        values["ÚltimaEdição"] = datetime.now().isoformat()
-
-        item = StockModel.from_dict(values)
-
-        identificacao = values["Identificação"]
-        response = self.stock_controller.update_item(identificacao, item)
-
-        self.items_list = self.stock_controller.get_all_items()
-        self.update_type_combobox()
-        self.update_fabricante_combobox()
-
-        self.clear_fields()
-
-        self.message_box_view(response)
-    
+        try:
+            messagebox.showinfo(title, message)
+        except:
+            messagebox.showerror(title, message)
 
     @staticmethod
     def only_letters(char):
@@ -391,4 +344,4 @@ class MainPage(ttk.Window):
 
     @staticmethod
     def letters_and_numbers(char):
-        return char.isalnum() or char.isspace()
+        return char.isascii() or char.isspace()
